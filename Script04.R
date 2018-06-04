@@ -42,7 +42,8 @@ ids=read.csv("NEW_ID_DILUTION.csv")
 
 # flowDiv com as diluições
 cem_lagos = flowDiv("Bruno_100Lagos_Beadsv10.wsp", "Bact", dilutions = ids$DILUTION)
-2 3
+2 3 5
+2
 
 # Removendo Outlier: Riacho da Cruz (94)
 metadata=metadata[-94,]
@@ -74,11 +75,16 @@ abund<-m1
 teste=dbFD(traits, abund)
 #enviromental
 envf<-dataall[,c(9,13:37,48:50)]
+colnames(envf)[c(8, 2, 28, 26, 9, 1, 29, 5)]=c("Abd", "RP", "Chla", "N.P", "pH", "Prec", "CO2", "PB")
+
+
 nmds0=cca(abund~1,envf, scale=T)
 nmds1=cca(abund~.,envf, scale=T)
 best=ordistep(nmds0, nmds1)
 plot(best, scaling=1)
+anova(best, by = "terms")
 
+library(vegan3d)
 # Manual plot
 plot(best, scaling=1, type="n")
 # All
@@ -128,37 +134,23 @@ nnn=nn(wksp, nod=gate.name,use.beads=use.beads, nod2=beads)
 
 
 ops<-unique(unlist(lapply(unlist(nnn$nodesample), colnames)))
-selection<-select.list(ops, c(1:length(ops)), multiple = T, title="Please select channels for use")
-
+#selection<-select.list(ops, c(1:length(ops)), multiple = T, title="Please select channels for use")
+selection=c("SSC-H","FITC-H","PerCP-Cy5-5-H")
 fixed=NULL
-if (static==TRUE){
-  fixeds=lapply(selection, function(x){
-    message(paste("Please enter minimum value for", x))
-    min=scan(nmax=1, quiet=T)
-
-    message(paste("Please enter maximum value for", x))
-    max=scan(nmax=1, quiet=T)
-
-    return(c(minimum=min, maximum=max))
-  } )
-
-  fixed=do.call(rbind, fixeds)
-  rownames(fixed)<-selection
-}
-
-
 binss=lapply(nnn$nodesample, function(x) lapply(x, function(y)lapply(selection, function(x)Freedman.Diaconis(exprs(y)[,x]))))
 suggested.bins=round(median(unlist(binss)))
 
 message(paste("Suggested number of bins:", suggested.bins, "\n"), "How many bins do you want to use?")
-nbins=scan(nmax=1, quiet=T)
-
+#nbins=scan(nmax=1, quiet=T)
+nbins=2
 myseqs <- seq_fun(nnn$nodesample, selection, nbins, fixed)
 
 myseqs
 
-ratio=order(envf$RP..µgC.l.h.)
-for (i in 91:96){
+ratio=order(envf$PB)
+library(ggplot2)
+gs<-list()
+for (i in 91:94){
   tubed=data.frame(exprs(nnn$nodesample[[1]][[ratio[i]]]))
   g1=ggplot(tubed)+
     aes_string(x="SSC.H", y="FITC.H")+
@@ -169,7 +161,7 @@ for (i in 91:96){
     theme_bw() +
     theme(panel.border = element_blank(),
           axis.line = element_blank(),
-          axis.title=element_text(size=40),
+          axis.title=element_text(size=20),
           # axis.line = element_line(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -178,8 +170,11 @@ for (i in 91:96){
           axis.text.y=element_blank(),
           axis.ticks.y=element_blank())+
     theme(legend.position="none")+
-    geom_hline(yintercept=c(-0.299030050, -0.196087588, -0.093145125, 0.009797337), linetype="dashed", color = "red")+
-    geom_vline(xintercept=c(-0.47963518, -0.33178400, -0.18393281, -0.03608163), linetype="dashed", color = "red")
+    geom_hline(yintercept=c(-0.144616357), linetype="dashed", color = "red")+
+    geom_vline(xintercept=c(-0.25785841), linetype="dashed", color = "red")
   #geom_point(data=clusters2, aes_string(y="FL1.H", x="SSC.H"), colour=clusters2$clust, alpha=.5, shape=15, size=1.83)
-  plot(g1)
+  gs[[i-90]]<-g1
 }
+
+marrangeGrob(gs, nrow=2, ncol=2)
+ggsave(marrangeGrob(gs, nrow=2, ncol=2),filename = "Higher", device = "pdf")
